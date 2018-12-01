@@ -1,0 +1,109 @@
+---
+title: "Practical Machine Learning Project"
+author: "Beth Calub"
+date: "December 1, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Data
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+###Loading the library needed for the processing.
+```{r}
+library(caret)
+library(randomForest)
+library(rpart)
+```
+##DOWNLOADING AND CLEANING DATA
+The files were downloaded from the https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv and ttps://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+### Download necessary files
+```{r}
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile="pm1-testing.csv")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile="pm1-training.csv")
+```
+### Reading the data from the download file and assigning them to variables to start the processing.
+
+### Read needed CSV files
+```{r}
+TRset <- read.csv("pm1-training.csv")
+TEset <- read.csv("pm1-testing.csv")
+```
+### Initialize data for processing
+```{r}
+TRset0 <- createDataPartition(TRset$classe, p=0.7, list=FALSE)
+TRset1 <- TRset[TRset0,]
+TEset1 <- TRset[-TRset0,]
+```
+###remove near zero variables and NA values
+The data contains a lot of variables as seen from running the dim() function.  Some of these variables contain “NA” values and Near Zero Variance hence it needs to be cleaned from them.
+```{r}
+Zero <- nearZeroVar(TRset1)
+Zero <- nearZeroVar(TRset1)
+TRset1 <- TRset1[,-Zero]
+TEset1 <- TEset1[,-Zero]
+dim(TRset1)
+dim(TEset1)
+NAvalues <- sapply(TRset1,function(x) mean(is.na(x))) > 0.95
+TRset1 <- TRset1[, NAvalues == FALSE]
+TEset1 <- TEset1[, NAvalues == FALSE]
+```
+### After the cleaning has been done, take the needed data which in this case the first five variables.
+Process needed values
+```{r}
+TRset1 <- TRset1[,-(1:5)]
+TEset1 <- TEset1[,-(1:5)]
+set.seed(34561)
+```
+
+##PREDICTION MODEL BUILDING
+For the project, there will be two methods that are being considered for the model.  One of which is the Random Forest and the Decision Tree. A confusion matrix is plotted at the end of each method to get the accuracy of the models.
+
+###RANDOM FOREST:
+From the following outputs, it can be seen that the random forest has an accuracy of 0.9983 which is very good.
+### Using random forest for the prediction
+```{r}
+RFcont <- trainControl(method="cv", number=3, verboseIter = FALSE)
+RFfit <- train(classe ~ ., data=TRset1, method = "rf", trControl = RFcont)
+RFfit$finalModel
+RFpredict <- predict(RFfit, newdata = TEset1)
+RFCMatrix <- confusionMatrix(RFpredict, TEset1$classe)
+RFCMatrix
+plot(RFCMatrix$table, col = RFCMatrix$byClass, main = paste("Random Forest - Accuracy =", round(RFCMatrix$overall['Accuracy'],4)))
+```
+###DECISION TREE:
+ The output shows that the accuracy is 0.7336.
+
+###using decision tree fro the prediction
+```{r}
+set.seed(34561)
+DTree <- rpart(classe ~., data=TRset1, method = "class")
+DTpredict <- predict(DTree, newdata=TEset1, type="class")
+DTCmatrix <- confusionMatrix(DTpredict, TEset1$classe)
+DTCmatrix
+plot(DTCmatrix$table, col = DTCmatrix$byClass, main = paste ("Decision Tree - Accuracy = ", round(DTCmatrix$overall['Accuracy'])))
+```
+
+##MODEL FOR THE TEST DATA:
+Comparing the two methods, it can be seen that Random Forest will be able to have a good prediction, hence it will be adopted for this project. Below is the output for the prediction model.
+
+###Applying the chosen method as a prediction model
+```{r}
+Tpredict <- predict(RFfit, newdata=TEset)
+Tpredict
+```
